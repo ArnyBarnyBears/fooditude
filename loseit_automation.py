@@ -205,7 +205,7 @@ async def login(page: Page, email: str, password: str) -> None:
 # ---------------------------------------------------------------------------
 
 async def open_create_food_form(page: Page) -> None:
-    """From the dashboard, click Add Food -> pick Lunch to open the food modal."""
+    """From the dashboard, click Add Food -> pick Snacks to open the food modal."""
     log.info("Opening Add Food flow...")
 
     add_food_sel = '.addFoodButton, [role="button"]:has-text("Add Food"), div:has-text("Add Food")[role="button"]'
@@ -217,10 +217,10 @@ async def open_create_food_form(page: Page) -> None:
         raise RuntimeError("Could not find 'Add Food' button on dashboard")
 
     try:
-        await page.get_by_text("Lunch", exact=True).click(timeout=5000)
+        await page.get_by_text("Snacks", exact=True).click(timeout=5000)
         await asyncio.sleep(2)
     except PwTimeout:
-        log.info("No 'Lunch' option found, trying to proceed anyway...")
+        log.info("No 'Snacks' option found, trying to proceed anyway...")
 
     await page.screenshot(path=_debug_path("05_meal_selected.png"))
     log.info("Meal selected. URL: %s", page.url)
@@ -335,12 +335,39 @@ async def create_all_foods(page: Page, foods: list[FoodEntry], delay: float = 2.
 # High-level runner
 # ---------------------------------------------------------------------------
 
+KEYRING_SERVICE = "fooditude-loseit"
+
+
 def _get_credentials() -> tuple[str, str]:
+    """
+    Load Lose It credentials. Tries macOS Keychain first (via keyring),
+    falls back to .env. Use `python pipeline.py setup` to store credentials
+    securely in the keychain.
+    """
+    import keyring
+
+    email = keyring.get_password(KEYRING_SERVICE, "email")
+    password = keyring.get_password(KEYRING_SERVICE, "password")
+
+    if email and password:
+        return email, password
+
     email = os.getenv("LOSEIT_EMAIL", "")
     password = os.getenv("LOSEIT_PASSWORD", "")
     if not email or not password or email == "your_email@example.com":
-        raise RuntimeError("Set LOSEIT_EMAIL and LOSEIT_PASSWORD in your .env file")
+        raise RuntimeError(
+            "No credentials found. Run 'python pipeline.py setup' to store them "
+            "securely in your keychain, or set LOSEIT_EMAIL and LOSEIT_PASSWORD in .env"
+        )
     return email, password
+
+
+def store_credentials(email: str, password: str) -> None:
+    """Save Lose It credentials to macOS Keychain."""
+    import keyring
+    keyring.set_password(KEYRING_SERVICE, "email", email)
+    keyring.set_password(KEYRING_SERVICE, "password", password)
+    log.info("Credentials stored in keychain under service '%s'", KEYRING_SERVICE)
 
 
 async def run_create(

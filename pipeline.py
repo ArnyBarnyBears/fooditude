@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from scrape_food import scrape_and_export
-from loseit_automation import run_create, log
+from loseit_automation import run_create, store_credentials, log
 
 VALID_DAYS = ["tuesday", "wednesday", "thursday"]
 VALID_CATEGORIES = ["all", "mains", "mains-extras"]
@@ -81,6 +81,16 @@ def cmd_run(args: argparse.Namespace) -> None:
     log.info("Pipeline complete.")
 
 
+def cmd_setup() -> None:
+    import getpass
+    print("Store Lose It! credentials in macOS Keychain")
+    print("(This avoids putting your password in the .env file)\n")
+    email = input("Lose It email: ").strip()
+    password = getpass.getpass("Lose It password: ")
+    store_credentials(email, password)
+    print("\nCredentials saved. You can now remove LOSEIT_PASSWORD from .env.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Fooditude -> Lose It! weekly pipeline",
@@ -101,6 +111,9 @@ def main():
     p_run = subs.add_parser("run", help="Scrape + create (full pipeline)")
     _add_common_args(p_run)
 
+    # --- setup ---
+    subs.add_parser("setup", help="Store Lose It credentials in macOS Keychain")
+
     args = parser.parse_args()
 
     if args.command == "scrape":
@@ -109,6 +122,8 @@ def main():
         cmd_create(args)
     elif args.command == "run":
         cmd_run(args)
+    elif args.command == "setup":
+        cmd_setup()
 
 
 if __name__ == "__main__":

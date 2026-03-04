@@ -11,7 +11,15 @@ pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-Create a `.env` file with your Lose It credentials:
+Store your Lose It credentials securely in the macOS Keychain:
+
+```bash
+python pipeline.py setup
+```
+
+This prompts for your email and password, stores them in the system keychain (not on disk), and they'll be used automatically on future runs.
+
+Alternatively, you can use a `.env` file (less secure — visible in plain text):
 
 ```
 LOSEIT_EMAIL=your@email.com
