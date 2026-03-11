@@ -4,6 +4,7 @@ Fooditude -> Lose It! weekly pipeline.
 Subcommands:
     python pipeline.py scrape                                # scrape menu to CSVs
     python pipeline.py create --day tuesday                  # create foods for one day
+    python pipeline.py create --day wednesday,thursday       # multiple days
     python pipeline.py create --day tuesday --categories mains-extras
     python pipeline.py create --categories mains             # mains only, all days
     python pipeline.py run                                   # scrape + create all
@@ -15,7 +16,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from scrape_food import scrape_and_export
@@ -33,8 +33,7 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--date", type=str, default=None,
                         help="Date label for food names, e.g. 25/02/2026")
     parser.add_argument("--day", type=str, default="all",
-                        choices=VALID_DAYS + ["all"],
-                        help="Which day to create foods for (default: all)")
+                        help="Comma-separated days: tuesday,wednesday,thursday or all (default: all)")
     parser.add_argument("--categories", type=str, default="all",
                         choices=VALID_CATEGORIES,
                         help="Category filter: all, mains, mains-extras (default: all)")
@@ -44,7 +43,14 @@ def _resolve_days(day_arg: str) -> list[str] | None:
     """Convert the --day CLI arg to a list of day keys, or None for all."""
     if day_arg == "all":
         return None
-    return [day_arg]
+    days = [d.strip().lower() for d in day_arg.split(",")]
+    invalid = [d for d in days if d not in VALID_DAYS]
+    if invalid:
+        raise SystemExit(
+            f"error: invalid day(s): {', '.join(invalid)} "
+            f"(choose from {', '.join(VALID_DAYS)}, all)"
+        )
+    return days
 
 
 def cmd_scrape(args: argparse.Namespace) -> None:
@@ -60,7 +66,7 @@ def cmd_scrape(args: argparse.Namespace) -> None:
 
 
 def cmd_create(args: argparse.Namespace) -> None:
-    date_label = args.date or datetime.now().strftime("%d/%m/%Y")
+    date_label = args.date  # None → auto-compute actual date per day
     days = _resolve_days(args.day)
 
     log.info("=" * 60)

@@ -13,7 +13,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,6 +27,7 @@ LOSEIT_URL = "https://www.loseit.com"
 LOSEIT_LOGIN_URL = "https://my.loseit.com/login?r=https%3A%2F%2Fwww.loseit.com%2F"
 
 DAY_MAP = {"tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu"}
+WEEKDAY_NUM = {"tuesday": 1, "wednesday": 2, "thursday": 3}  # Monday=0 per datetime.weekday()
 
 CATEGORY_PRESETS: dict[str, set[str] | None] = {
     "all": None,
@@ -370,6 +371,13 @@ def store_credentials(email: str, password: str) -> None:
     log.info("Credentials stored in keychain under service '%s'", KEYRING_SERVICE)
 
 
+def _date_for_day(day_key: str) -> str:
+    """Return the dd/mm/yyyy date for the given weekday in the current week."""
+    today = datetime.now().date()
+    delta = WEEKDAY_NUM[day_key] - today.weekday()
+    return (today + timedelta(days=delta)).strftime("%d/%m/%Y")
+
+
 async def run_create(
     csv_dir: Path = Path("output"),
     headless: bool = True,
@@ -382,12 +390,11 @@ async def run_create(
 
     days: list of day names like ["tuesday"] or None for all.
     categories: "all", "mains", or "mains-extras".
+    date_label: explicit date override (dd/mm/yyyy) for all days, or None
+                to auto-compute each day's actual date in the current week.
     """
-    if date_label is None:
-        date_label = datetime.now().strftime("%d/%m/%Y")
-
     log.info("=" * 60)
-    log.info("Lose It! Food Creation — %s", date_label)
+    log.info("Lose It! Food Creation — date: %s", date_label or "auto (per day)")
     log.info("  Days: %s | Categories: %s", days or "all", categories)
     log.info("=" * 60)
 
@@ -398,9 +405,10 @@ async def run_create(
         if days and day_key not in days:
             continue
         day_short = DAY_MAP.get(day_key, day_key.title())
-        label = f"{day_short} {date_label}"
+        day_date = date_label or _date_for_day(day_key)
+        label = f"{day_short} {day_date}"
         foods = load_foods_from_csv(csv_file, label, categories=categories)
-        log.info("Loaded %d foods from %s (categories=%s)", len(foods), csv_file.name, categories)
+        log.info("Loaded %d foods from %s → %s (categories=%s)", len(foods), csv_file.name, label, categories)
         all_foods.extend(foods)
 
     if not all_foods:
